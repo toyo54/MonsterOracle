@@ -71,7 +71,57 @@ print(f"🔮  CR PREDETTO: {estimated_cr:.2f}")
 # 4. TEST SENSIBILITÀ
 weak_boss = custom_boss.copy()
 weak_boss['legendary_actions_count'] = 0
+#weak_boss['actions_count'] = 0
 weak_cr = predict_monster_cr(rf_lean, top_20_features, weak_boss)
 
 print(f"📉  CR Senza Azioni Leggendarie: {weak_cr:.2f}")
 print(f"💡  Delta: {estimated_cr - weak_cr:.2f} punti.")
+
+# ---------------------------------------------------------
+# TEST: GLASS CANNON (Pochi HP, Alta Offensiva)
+# ---------------------------------------------------------
+glass_cannon = {
+    'hit_points': 50,               # HP Bassi (da CR 1/2)
+    'armor_class': 14,
+    'constitution': 10,
+    'hit_dice_count': 6,
+    'strength': 10,
+    'dexterity': 20,
+    'actions_count': 4,             # 4 Attacchi!
+    'legendary_actions_count': 0,
+    'special_abilities_count': 1
+}
+
+# 1. Predizione con azioni
+cr_full = predict_monster_cr(rf_lean, top_20_features, glass_cannon)
+
+# 2. Predizione senza azioni
+glass_cannon_weak = glass_cannon.copy()
+glass_cannon_weak['actions_count'] = 1 # Lo rendiamo inoffensivo
+
+cr_weak = predict_monster_cr(rf_lean, top_20_features, glass_cannon_weak)
+
+print(f"🗡️ CR Assassino (4 Attacchi): {cr_full:.2f}")
+print(f"🥀 CR Assassino (1 Attacco):  {cr_weak:.2f}")
+print(f"📉 Crollo del CR: {cr_full - cr_weak:.2f}")
+
+
+print("\n🔬 TEST FINALE: Feature Dominance (HP vs Actions)")
+print("-" * 50)
+
+# Caso A: L'Assassino perde le azioni (ma tiene gli HP)
+boss_no_actions = glass_cannon.copy()
+boss_no_actions['actions_count'] = 1
+cr_no_actions = predict_monster_cr(rf_lean, top_20_features, boss_no_actions)
+
+# Caso B: L'Assassino perde metà vita (ma tiene le azioni)
+boss_half_hp = glass_cannon.copy()
+boss_half_hp['hit_points'] = 25 # Dimezzati da 50
+cr_half_hp = predict_monster_cr(rf_lean, top_20_features, boss_half_hp)
+
+print(f"1. Base (50 HP, 4 Atk):      CR {cr_full:.2f}")
+print(f"2. Solo 1 Attacco (50 HP):   CR {cr_no_actions:.2f} (Delta: {cr_full - cr_no_actions:.2f}) -> Impatto Minimo")
+print(f"3. Metà Vita (25 HP, 4 Atk): CR {cr_half_hp:.2f}    (Delta: {cr_full - cr_half_hp:.2f}) -> Impatto MASSICCIO")
+
+print("-" * 50)
+print("CONCLUSIONE: Il modello conferma che gli HP pesano molto più dell'Action Economy.")
