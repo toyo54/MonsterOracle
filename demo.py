@@ -1,127 +1,212 @@
 # ==============================================================================
-# 🛠️ SETUP & TRAINING (Esegui questo per creare il modello rf_lean)
+# 🛠️ D&D 5e CR PREDICTOR - FINAL DEMO (Strict Blindfold Model)
 # ==============================================================================
 import pandas as pd
+import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+import warnings
+
+# Configurazione pulizia output
+warnings.filterwarnings("ignore")
+pd.set_option('display.max_columns', None)
+
+print("🎲 D&D Analytics: CR Prediction Engine (Strict Protocol)")
+print("=" * 60)
 
 # 1. CARICAMENTO DATI
 # ------------------------------------------------------------------------------
-df = pd.read_csv("./data/monsters_lean.csv")
+path = "./data/monsters_lean.csv"
 
-# 2. DEFINIZIONE DELLE FEATURE (Top 20)
+df = pd.read_csv(path)
+print(f"✅ Dataset caricato da '{path}': {df.shape}")
+
+if df is None:
+    print("❌ ERRORE CRITICO: Il file 'monsters_lean.csv' non è stato trovato.")
+    print("   Esegui prima lo script 'optimization.ipynb' per generarlo.")
+    exit()
+
+# 2. DEFINIZIONE FEATURE (Automatic Detection)
 # ------------------------------------------------------------------------------
-# Definiamo manualmente le colonne per essere sicuri che esistano
-top_20_features = [
-    'hit_points', 'armor_class', 'hit_dice_count', 'constitution',
-    'strength', 'dexterity', 'charisma', 'wisdom_save', 'constitution_save',
-    'damage_immunities_count', 'damage_resistances_count', 'condition_immunities_count',
-    'actions_count', 'legendary_actions_count', 'special_abilities_count',
-    'intelligence_save', 'passive_perception', 'charisma_save', 'dexterity_save',
-    'skills.stealth'
-]
+target = 'cr' if 'cr' in df.columns else 'challenge_rating'
+cols_to_exclude = ['name', target, 'challenge_rating', 'Unnamed: 0']
 
-# Controllo esistenza colonne nel CSV (se mancano, le crea a 0)
-for col in top_20_features:
-    if col not in df.columns:
-        print(f"Colonna creata: {col}")
-        df[col] = 0
+feature_cols = [c for c in df.columns if c not in cols_to_exclude]
 
-# 3. ADDESTRAMENTO MODELLO
+print(f"📋 Feature utilizzate ({len(feature_cols)}): {feature_cols}")
+
+# 3. ADDESTRAMENTO MODELLO (STRICT BLINDFOLD)
 # ------------------------------------------------------------------------------
-print("⚙️  Addestramento del modello 'rf_lean' in corso...")
+# max_features='log2' costringe ogni albero a vedere pochissime feature (4 su 20),
+# aumentando drasticamente la probabilità che usi i danni invece degli HP.
 
-X = df[top_20_features].fillna(0)
-y = df['cr'] if 'cr' in df.columns else df.iloc[:, -1] # Fallback se manca 'cr'
+print("\n⚙️  Training Modello 'Strict Blindfold' (log2, 500 alberi)...")
 
-# Addestriamo
-rf_lean = RandomForestRegressor(n_estimators=100, random_state=42)
-rf_lean.fit(X, y)
+X = df[feature_cols].fillna(0)
+y = df[target]
 
-print("✅  Modello addestrato con successo.")
+rf_tuned = RandomForestRegressor(
+    n_estimators=500,  # Più alberi per compensare la visione limitata
+    max_features='log2',
+    min_samples_leaf=2,  # Sensibilità agli outlier
+    random_state=42,
+    n_jobs=-1
+)
+
+rf_tuned.fit(X, y)
+print("✅  Training completato.")
 print("-" * 60)
 
+
 # ==============================================================================
-# 🎲 PREDICTION
+# MOTORE DI PREDIZIONE
 # ==============================================================================
 
-# 1. FUNZIONE DI PREDIZIONE
-def predict_monster_cr(model, feature_list, monster_data):
-    input_df = pd.DataFrame([monster_data])
+def predict_monster_cr(model, feature_list, monster_dict):
+    """
+    Predice il CR di un mostro partendo da un dizionario.
+    Calcola automaticamente 'offensive_threat' se mancante.
+    """
+    data = monster_dict.copy()
+
+    # 1. Calcolo Automatico Threat (Dmg * Actions)
+    if 'offensive_threat' not in data:
+        dmg = data.get('max_damage_per_hit', 0)
+        acts = data.get('actions_count', 1)
+        data['offensive_threat'] = dmg * acts
+
+    # 2. Creazione DataFrame e allineamento colonne
+    input_df = pd.DataFrame([data])
     input_df = input_df.reindex(columns=feature_list, fill_value=0)
+
+    # 3. Predizione
     return model.predict(input_df)[0]
 
-# 2. DEFINIZIONE MOSTRO CUSTOM
-print("🛠️  Generazione del mostro 'Lord of Cinder'...")
 
-custom_boss = {
-    'hit_points': 200, 'armor_class': 19, 'constitution': 22, 'hit_dice_count': 20,
-    'strength': 24, 'dexterity': 14, 'charisma': 20,
-    'wisdom_save': 9, 'constitution_save': 12,
-    'damage_immunities_count': 2, 'condition_immunities_count': 4, 'damage_resistances_count': 1,
-    'actions_count': 3, 'legendary_actions_count': 3, 'special_abilities_count': 2
+# ==============================================================================
+# 🧪 SCENARI DI TEST
+# ==============================================================================
+
+# SCENARIO A: Il Boss Custom "Lord of Cinder"
+# -------------------------------------------------------
+print("\n🔥 TEST 1: CUSTOM BOSS ('Lord of Cinder')")
+lord_of_cinder = {
+    'hit_points': 200,
+    'armor_class': 19,
+    'constitution': 22,
+    'hit_dice_count': 20,
+    'strength': 24,
+    'dexterity': 14,
+    'charisma': 20,
+    'wisdom_save': 9,
+    'constitution_save': 12,
+    'damage_immunities_count': 2,
+    'condition_immunities_count': 4,
+    'actions_count': 3,
+    'legendary_actions_count': 3,
+    'max_damage_per_hit': 25  # Minaccia: 75 danni/round
 }
+cr_loc = predict_monster_cr(rf_tuned, feature_cols, lord_of_cinder)
+print(f"   HP: {lord_of_cinder['hit_points']} | AC: {lord_of_cinder['armor_class']} | Dmg: 75/rnd")
+print(f"   👉 CR Predetto: {cr_loc:.2f}")
 
-# 3. PREDIZIONE
-estimated_cr = predict_monster_cr(rf_lean, top_20_features, custom_boss)
+# SCENARIO B: Il "Glass Cannon" (L'Assassino)
+# -------------------------------------------------------
+print("\n🗡️  TEST 2: GLASS CANNON CHECK (L'Assassino)")
+print("   Obiettivo: Verificare se il danno conta quanto la vita.")
 
-# Report
-print(f"🐉  SCHEDA: LORD OF CINDER | HP: {custom_boss['hit_points']} | AC: {custom_boss['armor_class']}")
-print(f"🔮  CR PREDETTO: {estimated_cr:.2f}")
-
-# 4. TEST SENSIBILITÀ
-weak_boss = custom_boss.copy()
-weak_boss['legendary_actions_count'] = 0
-#weak_boss['actions_count'] = 0
-weak_cr = predict_monster_cr(rf_lean, top_20_features, weak_boss)
-
-print(f"📉  CR Senza Azioni Leggendarie: {weak_cr:.2f}")
-print(f"💡  Delta: {estimated_cr - weak_cr:.2f} punti.")
-
-# ---------------------------------------------------------
-# TEST: GLASS CANNON (Pochi HP, Alta Offensiva)
-# ---------------------------------------------------------
-glass_cannon = {
-    'hit_points': 50,               # HP Bassi (da CR 1/2)
-    'armor_class': 14,
-    'constitution': 10,
-    'hit_dice_count': 6,
-    'strength': 10,
+assassin_base = {
+    'hit_points': 60,
+    'armor_class': 15,
     'dexterity': 20,
-    'actions_count': 4,             # 4 Attacchi!
-    'legendary_actions_count': 0,
-    'special_abilities_count': 1
+    'actions_count': 3,
+    'max_damage_per_hit': 30,
+    'hit_dice_count': 8,
+    'constitution_save': 4
 }
 
-# 1. Predizione con azioni
-cr_full = predict_monster_cr(rf_lean, top_20_features, glass_cannon)
+cr_full = predict_monster_cr(rf_tuned, feature_cols, assassin_base)
 
-# 2. Predizione senza azioni
-glass_cannon_weak = glass_cannon.copy()
-glass_cannon_weak['actions_count'] = 1 # Lo rendiamo inoffensivo
+# 2. Nerf Offensivo
+assassin_weak_atk = assassin_base.copy()
+assassin_weak_atk['max_damage_per_hit'] = 5
+assassin_weak_atk['actions_count'] = 1
+cr_weak_atk = predict_monster_cr(rf_tuned, feature_cols, assassin_weak_atk)
 
-cr_weak = predict_monster_cr(rf_lean, top_20_features, glass_cannon_weak)
+# 3. Nerf Difensivo
+assassin_weak_hp = assassin_base.copy()
+assassin_weak_hp['hit_points'] = 30
+cr_weak_hp = predict_monster_cr(rf_tuned, feature_cols, assassin_weak_hp)
 
-print(f"🗡️ CR Assassino (4 Attacchi): {cr_full:.2f}")
-print(f"🥀 CR Assassino (1 Attacco):  {cr_weak:.2f}")
-print(f"📉 Crollo del CR: {cr_full - cr_weak:.2f}")
+delta_atk = cr_full - cr_weak_atk
+delta_hp = cr_full - cr_weak_hp
 
+print(f"   A. Assassino Letale (60 HP, 90 Dmg): CR {cr_full:.2f}")
+print(f"   B. Assassino Inetto (60 HP,  5 Dmg): CR {cr_weak_atk:.2f} (Delta: -{delta_atk:.2f})")
+print(f"   C. Assassino Fragile (30 HP, 90 Dmg): CR {cr_weak_hp:.2f} (Delta: -{delta_hp:.2f})")
 
-print("\n🔬 TEST FINALE: Feature Dominance (HP vs Actions)")
-print("-" * 50)
+if delta_atk > 0.4:
+    print("RISULTATO: Il modello riconosce l'offensiva! (Delta significativo)")
+else:
+    print("RISULTATO: Il modello è ancora titubante sui danni.")
 
-# Caso A: L'Assassino perde le azioni (ma tiene gli HP)
-boss_no_actions = glass_cannon.copy()
-boss_no_actions['actions_count'] = 1
-cr_no_actions = predict_monster_cr(rf_lean, top_20_features, boss_no_actions)
+# SCENARIO C: Generazione Mostri Bilanciati
+# -------------------------------------------------------
+print("\n TEST 3: MOSTRI BILANCIATI (Generati per il modello)")
+print("(Questi archetipi dovrebbero ottenere CR corretti)")
 
-# Caso B: L'Assassino perde metà vita (ma tiene le azioni)
-boss_half_hp = glass_cannon.copy()
-boss_half_hp['hit_points'] = 25 # Dimezzati da 50
-cr_half_hp = predict_monster_cr(rf_lean, top_20_features, boss_half_hp)
+balanced_roster = [
+    {
+        "name": "Ironbound Sentinel (Tank)",
+        "hit_points": 85, "armor_class": 18, "constitution": 18,
+        "actions_count": 2, "max_damage_per_hit": 15,
+        "damage_resistances_count": 1, "hit_dice_count": 10
+    },
+    {
+        "name": "Stormborn Goliath (Bruiser)",
+        "hit_points": 180, "armor_class": 15, "constitution": 22,
+        "actions_count": 3, "max_damage_per_hit": 28,
+        "damage_immunities_count": 1, "hit_dice_count": 18
+    },
+    # --- LICH INCOMPLETO ---
+    {
+        "name": "Void Lich (incompleto)",
+        "hit_points": 210, "armor_class": 19, "constitution": 20,
+        "actions_count": 3, "max_damage_per_hit": 45, "legendary_actions_count": 3,
+        "damage_immunities_count": 3, "condition_immunities_count": 5
+    },
+    # --- LICH FULL STATS ---
+    {
+        "name": "Void Lich (Full Power)",
+        # 1. Difesa Fisica
+        "hit_points": 210,
+        "armor_class": 19,
+        "constitution": 20,
+        "hit_dice_count": 22,
+        "damage_resistances_count": 2,
+        "damage_immunities_count": 3,
+        "condition_immunities_count": 5,
 
-print(f"1. Base (50 HP, 4 Atk):      CR {cr_full:.2f}")
-print(f"2. Solo 1 Attacco (50 HP):   CR {cr_no_actions:.2f} (Delta: {cr_full - cr_no_actions:.2f}) -> Impatto Minimo")
-print(f"3. Metà Vita (25 HP, 4 Atk): CR {cr_half_hp:.2f}    (Delta: {cr_full - cr_half_hp:.2f}) -> Impatto MASSICCIO")
+        "charisma": 20,
+        "intelligence_save": 13,
+        "wisdom_save": 10,
+        "constitution_save": 11,
+        "charisma_save": 11,
+        "dexterity_save": 5,
 
-print("-" * 50)
-print("CONCLUSIONE: Il modello conferma che gli HP pesano molto più dell'Action Economy.")
+        "passive_perception": 22,
+        "skills.arcana": 18,
+        "skills.stealth": 0,
+
+        "actions_count": 3,
+        "max_damage_per_hit": 45,
+        "legendary_actions_count": 3,
+        "special_abilities_count": 5
+    }
+]
+
+for m in balanced_roster:
+    cr = predict_monster_cr(rf_tuned, feature_cols, m)
+    print(f"   🔹 {m['name']:<30} -> CR Stimato: {cr:.2f}")
+
+print("\n" + "=" * 60)
+print("✅ DEMO COMPLETATA.")
