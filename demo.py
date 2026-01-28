@@ -21,8 +21,8 @@ df = pd.read_csv(path)
 print(f" Dataset caricato da '{path}': {df.shape}")
 
 if df is None:
-    print("❌ ERRORE CRITICO: Il file 'monsters_lean.csv' non è stato trovato.")
-    print("   Esegui prima lo script 'optimization.ipynb' per generarlo.")
+    print("ERRORE CRITICO: Il file 'monsters_lean.csv' non è stato trovato.")
+    print(" Esegui prima lo script 'optimization.ipynb' per generarlo.")
     exit()
 
 # 2. DEFINIZIONE FEATURE (Automatic Detection)
