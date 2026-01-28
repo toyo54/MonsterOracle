@@ -1,5 +1,5 @@
 # ==============================================================================
-# 🛠️ D&D 5e CR PREDICTOR - FINAL DEMO (Strict Blindfold Model)
+#  D&D 5e CR PREDICTOR - FINAL DEMO (Strict Blindfold Model)
 # ==============================================================================
 import pandas as pd
 import numpy as np
@@ -10,7 +10,7 @@ import warnings
 warnings.filterwarnings("ignore")
 pd.set_option('display.max_columns', None)
 
-print("🎲 D&D Analytics: CR Prediction Engine (Strict Protocol)")
+print(" D&D Analytics: CR Prediction Engine (Strict Protocol)")
 print("=" * 60)
 
 # 1. CARICAMENTO DATI
@@ -18,7 +18,7 @@ print("=" * 60)
 path = "./data/monsters_lean.csv"
 
 df = pd.read_csv(path)
-print(f"✅ Dataset caricato da '{path}': {df.shape}")
+print(f" Dataset caricato da '{path}': {df.shape}")
 
 if df is None:
     print("❌ ERRORE CRITICO: Il file 'monsters_lean.csv' non è stato trovato.")
@@ -32,14 +32,14 @@ cols_to_exclude = ['name', target, 'challenge_rating', 'Unnamed: 0']
 
 feature_cols = [c for c in df.columns if c not in cols_to_exclude]
 
-print(f"📋 Feature utilizzate ({len(feature_cols)}): {feature_cols}")
+print(f" Feature utilizzate ({len(feature_cols)}): {feature_cols}")
 
 # 3. ADDESTRAMENTO MODELLO (STRICT BLINDFOLD)
 # ------------------------------------------------------------------------------
 # max_features='log2' costringe ogni albero a vedere pochissime feature (4 su 20),
 # aumentando drasticamente la probabilità che usi i danni invece degli HP.
 
-print("\n⚙️  Training Modello 'Strict Blindfold' (log2, 500 alberi)...")
+print("\n Training Modello 'Strict Blindfold' (log2, 500 alberi)...")
 
 X = df[feature_cols].fillna(0)
 y = df[target]
@@ -53,7 +53,7 @@ rf_tuned = RandomForestRegressor(
 )
 
 rf_tuned.fit(X, y)
-print("✅  Training completato.")
+print(" Training completato.")
 print("-" * 60)
 
 
@@ -83,12 +83,12 @@ def predict_monster_cr(model, feature_list, monster_dict):
 
 
 # ==============================================================================
-# 🧪 SCENARI DI TEST
+#  SCENARI DI TEST
 # ==============================================================================
 
 # SCENARIO A: Il Boss Custom "Lord of Cinder"
 # -------------------------------------------------------
-print("\n🔥 TEST 1: CUSTOM BOSS ('Lord of Cinder')")
+print("\n TEST 1: CUSTOM BOSS ('Lord of Cinder')")
 lord_of_cinder = {
     'hit_points': 200,
     'armor_class': 19,
@@ -107,11 +107,11 @@ lord_of_cinder = {
 }
 cr_loc = predict_monster_cr(rf_tuned, feature_cols, lord_of_cinder)
 print(f"   HP: {lord_of_cinder['hit_points']} | AC: {lord_of_cinder['armor_class']} | Dmg: 75/rnd")
-print(f"   👉 CR Predetto: {cr_loc:.2f}")
+print(f"   CR Predetto: {cr_loc:.2f}")
 
 # SCENARIO B: Il "Glass Cannon" (L'Assassino)
 # -------------------------------------------------------
-print("\n🗡️  TEST 2: GLASS CANNON CHECK (L'Assassino)")
+print("\n  TEST 2: GLASS CANNON CHECK (L'Assassino)")
 print("   Obiettivo: Verificare se il danno conta quanto la vita.")
 
 assassin_base = {
@@ -209,4 +209,4 @@ for m in balanced_roster:
     print(f"   🔹 {m['name']:<30} -> CR Stimato: {cr:.2f}")
 
 print("\n" + "=" * 60)
-print("✅ DEMO COMPLETATA.")
+print("  DEMO COMPLETATA.")
