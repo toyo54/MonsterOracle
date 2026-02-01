@@ -206,7 +206,7 @@ balanced_roster = [
 
 for m in balanced_roster:
     cr = predict_monster_cr(rf_tuned, feature_cols, m)
-    print(f"   🔹 {m['name']:<30} -> CR Stimato: {cr:.2f}")
+    print(f"    {m['name']:<30} -> CR Stimato: {cr:.2f}")
 
 print("\n" + "=" * 60)
 print("  DEMO COMPLETATA.")
